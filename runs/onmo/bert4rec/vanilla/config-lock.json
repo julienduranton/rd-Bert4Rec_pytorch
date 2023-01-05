@@ -1,0 +1,60 @@
+{
+    "envs": {
+        "RUN_ROOT": "/workspace/runs",
+        "DATA_ROOT": "/workspace/data",
+        "ROUGH_ROOT": "/workspace/roughs",
+        "CPU_COUNT": 8,
+        "GPU_COUNT": 1
+    },
+    "solver": "BERT4RecSolver",
+    "dataset": "onmo",
+    "dataloader": {
+        "sequence_len": 200,
+        "max_num_segments": 0,
+        "random_cut_prob": 0.0,
+        "mlm_mask_prob": 0.2,
+        "nwp_replace_prob": 0.02,
+        "use_session_token": false,
+        "random_seed": 12345
+    },
+    "model": {
+        "num_layers": 4,
+        "hidden_dim": 256,
+        "temporal_dim": 0,
+        "num_heads": 2,
+        "dropout_prob": 0.2,
+        "random_seed": 12345
+    },
+    "train": {
+        "epoch": 800,
+        "patience": 400,
+        "batch_size": 128,
+        "optimizer": {
+            "algorithm": "adamw",
+            "lr": 0.001,
+            "beta1": 0.9,
+            "beta2": 0.999,
+            "weight_decay": 0.05,
+            "amsgrad": false
+        },
+        "scheduler": {
+            "algorithm": "step",
+            "step_size": 50,
+            "gamma": 1.0
+        }
+    },
+    "metric": {
+        "ks": [
+            1,
+            5,
+            10,
+            20,
+            50,
+            100
+        ],
+        "pivot": "NDCG@10"
+    },
+    "memo": "",
+    "name": "onmo/bert4rec/vanilla",
+    "run_dir": "/workspace/runs/onmo/bert4rec/vanilla"
+}
