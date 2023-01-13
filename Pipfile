@@ -3,15 +3,18 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
+[[source]]
+url = "https://download.pytorch.org/whl/cu117"
+verify_ssl = true
+name = "pytorch"
+
 [packages]
 tqdm = "*"
 matplotlib = "*"
 pandas = "*"
 scikit-learn = "*"
 tensorboardx = "*"
-torch = "*"
-torchvision = "*"
-torchaudio = "*"
+torch = {version = "*", index = "pytorch"}
 
 [dev-packages]
 torch-tb-profiler = "*"

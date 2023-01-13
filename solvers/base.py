@@ -1,25 +1,14 @@
-import os
 import json
 import logging
+import os
+from typing import Dict, List
 
 import torch
-
-from typing import (
-    List,
-    Dict,
-)
-
-from tqdm import tqdm
 from tensorboardX import SummaryWriter
-from torch.utils.data import (
-    Dataset,
-    DataLoader,
-)
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
-from tools.metrics import (
-    METRIC_NAMES,
-    calc_batch_rec_metrics_per_k,
-)
+from tools.metrics import METRIC_NAMES, calc_batch_rec_metrics_per_k
 from tools.schedulers import CosineAnnealingWarmupRestarts
 
 
@@ -164,6 +153,18 @@ class BaseSolver:
         elif purpose == 'train':
             self.model = self.model.train()
 
+    def predict(self,dataloader) -> None:
+        self.load_model('test')
+        pbar = tqdm(dataloader)
+        pbar.set_description(f"[prediction]")
+        with torch.no_grad():
+            for batch in pbar:
+                res = self.calculate_rankers(batch)
+        pbar.close()
+        res = res.tolist()[0]
+        return res
+        
+    
     def solve(self) -> None:
         C = self.config
         name = C['name']

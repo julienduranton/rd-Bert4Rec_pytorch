@@ -40,6 +40,7 @@ def parse_args():
         'count': (
             'stats',
         ),
+        'predict': DNAMES
     }
     tasks = list(task2names.keys())
     names = []
@@ -97,7 +98,71 @@ def cut_and_assign_sids_to_rows(rows):
         rows.extend(tba)
     return rows
 
+def predict_cut_and_assign_sids_to_rows(rows):
+    sid = 0
+    uid2rows = {}
+    for iid, uid, timestamp in tqdm(rows, desc="* organize uid2rows"):
+        if uid not in uid2rows:
+            uid2rows[uid] = []
+        uid2rows[uid].append((iid, timestamp))
+    rows = []
+    uids = list(uid2rows.keys())
+    for uid in tqdm(uids, desc="* cutting"):
+        user_rows = sorted(uid2rows[uid], key=itemgetter(1))
+        tba = []
+        sid2count = {}
+        # if MAX_SEQUENCE_LENGTH:
+        #     user_rows = user_rows[-MAX_SEQUENCE_LENGTH:]
+        sid += 1
+        _, previous_timestamp = user_rows[0]
+        for iid, timestamp in user_rows:
+            if timestamp - previous_timestamp > SESSION_WINDOW:
+                sid += 1
+            tba.append((uid, iid, sid, timestamp))
+            sid2count[sid] = sid2count.get(sid, 0) + 1
+            previous_timestamp = timestamp
+        # if MIN_SESSION_COUNT_PER_USER and len(sid2count) < MIN_SESSION_COUNT_PER_USER:
+        #     continue
+        # if MIN_ITEM_COUNT_PER_SESSION and min(sid2count.values()) < MIN_ITEM_COUNT_PER_SESSION:
+        #     continue
+        rows.extend(tba)
+    return rows
 
+def do_predict_preprocessing(data_dir, df_rows):
+    print("do predict preprocessing")
+
+    # check first
+    data_dir = data_dir
+    os.makedirs(data_dir, exist_ok=True)
+
+    # cut and assign sid
+    print("- cut and assign sid")
+    rows = predict_cut_and_assign_sids_to_rows(df_rows.values)
+    df_rows = pd.DataFrame(rows)
+    df_rows.columns = ['uid', 'iid', 'sid', 'timestamp']
+
+    # Load existing indexes
+    with open(os.path.join(data_dir,'uid2uindex.pkl'), 'rb') as fp:
+        uid2uindex = pickle.load(fp)
+        
+    # map uid -> uindex
+    print("- map uid -> uindex")
+    df_rows['uindex'] = [1 for _ in df_rows['uid']]
+    df_rows = df_rows.drop(columns=['uid'])
+
+    # map iid -> iindex
+    with open(os.path.join(data_dir,'iid2iindex.pkl'), 'rb') as fp:
+        iid2iindex = pickle.load(fp)
+
+    print("- map iid -> iindex")
+    df_rows['iindex'] = [iid2iindex.get(str(iid)) for iid in df_rows['iid']]
+
+    df_rows = df_rows.drop(columns=['iid'])
+    
+    # save df_rows
+    return df_rows
+
+        
 def do_general_preprocessing(args, df_rows):
     """
         Create `df_rows` in a right format and the rest will be done.
@@ -316,6 +381,29 @@ def task_prepare_onmo(args):
     do_general_popular_negative_sampling(args,negSamp)
 
     print("done")
+
+def task_predict_onmo(csvpath):
+    print("task: prepare predict onmo")
+    
+    # check first
+    data_dir = 'data/onmo'
+    os.makedirs(data_dir, exist_ok=True)
+
+    # load data
+    print("- load data")
+    df_rows = pd.read_csv(csvpath, sep=',', header=0, engine='python')
+    
+    df_rows.columns = ['created_at', 'iid','uid', 'session_type']
+    df_rows['timetamp'] = [dt.timestamp(dt.strptime(date,"%Y-%m-%d %H:%M:%S")) for date in df_rows['created_at']]
+
+    # make implicit
+    print("- make implicit")
+    df_rows = df_rows.drop(columns=['session_type'])
+    df_rows = df_rows.drop(columns=['created_at'])
+    
+    # do the rest
+    return do_predict_preprocessing(data_dir, df_rows)
+
 
     
 

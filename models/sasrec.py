@@ -128,3 +128,5 @@ class SASRec(nn.Module):
         logits = self.clf(x)
 
         return logits
+    
+    

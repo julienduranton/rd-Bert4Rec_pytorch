@@ -2,7 +2,7 @@
 {
     "dataset": "onmo",
     "dataloader": {
-        "sequence_len": 200,
+        "sequence_len": 20,
         "mlm_mask_prob": 0.2
     },
     "model": {

@@ -3,16 +3,15 @@
 import os
 import pickle
 import random
-
 from typing import Optional
 
 from torch import LongTensor
 from torch.utils.data import Dataset
 
-
 __all__ = (
     'NWPTrainDataset',
     'NWPEvalDataset',
+    'NWPPredictDataset'
 )
 
 
@@ -206,6 +205,7 @@ class NWPEvalDataset(Dataset):
         elif self.target == 'test':
             rows_known = rows_train + rows_valid
             rows_eval = rows_test
+            
 
         # tokens and segments
         tokens = []
@@ -269,6 +269,133 @@ class NWPEvalDataset(Dataset):
             cands = list(range(1, self.num_items))
             labels = [0] * self.num_items
             labels[answer - 1] = 1
+
+        return {
+            'tokens': LongTensor(tokens),
+            'segments': LongTensor(segments),
+            'stamps': LongTensor(stamps),
+            'cands': LongTensor(cands),
+            'labels': LongTensor(labels),
+        }
+
+class NWPPredictDataset(Dataset):
+
+    data_root = 'data'
+
+    def __init__(self,
+                 df_predict,
+                 name: str,
+                 target: str,  # 'valid', 'test'
+                 ns: str,  # 'random', 'popular', 'all'
+                 sequence_len: int = 200,
+                 max_num_segments: int = 10,
+                 use_session_token: bool = False
+                 ):
+
+        # params
+        self.name = name
+        self.target = target
+        self.ns = ns
+        self.sequence_len = sequence_len
+        self.max_num_segments = max_num_segments
+        self.use_session_token = use_session_token
+        self.df = df_predict
+        self.df = self.df.drop(columns=['uindex'])
+        self.df = self.df.values.tolist()
+
+
+        # load data
+        with open(os.path.join(self.data_root, name, 'iid2iindex.pkl'), 'rb') as fp:
+            self.iid2iindex = pickle.load(fp)
+        # with open(os.path.join(self.data_root, name, 'train.pkl'), 'rb') as fp:
+        #     self.uindex2rows_train = pickle.load(fp)
+        # with open(os.path.join(self.data_root, name, 'valid.pkl'), 'rb') as fp:
+        #     self.uindex2rows_valid = pickle.load(fp)
+        # with open(os.path.join(self.data_root, name, 'test.pkl'), 'rb') as fp:
+        #     self.uindex2rows_test = pickle.load(fp)
+
+        self.num_items = len(self.iid2iindex)
+
+        # tokens
+        self.padding_token = 0
+        self.mask_token = self.num_items + 1
+        self.session_token = self.num_items + 2
+        self.padding_segment = 0
+
+    def __len__(self):
+        return 1
+
+    def __getitem__(self, index):
+
+        # data point
+
+        # prepare rows
+
+        rows_known =self.df
+            
+
+        # tokens and segments
+        tokens = []
+        segments = []
+        stamps = []
+        current_segment = 0
+        previous_sid = None
+        start_stamp = 0
+        for i, (current_sid, stamp, iindex) in enumerate(rows_known):
+
+            # save it for stamp padding
+            if not i:
+                start_stamp = stamp
+
+            # when new session
+            if current_sid != previous_sid:
+                current_segment += 1
+                previous_sid = current_sid
+                if self.use_session_token:
+                    tokens.append(self.session_token)
+                    segments.append(current_segment)
+                    stamps.append(stamp)
+
+            # add item
+            tokens.append(iindex)
+            segments.append(current_segment)
+            stamps.append(stamp)
+
+        # # get eval row
+        # answer, next_sid, next_stamp = rows_eval[0]
+
+        # # if the next eval is new session
+        # if next_sid != previous_sid:
+        #     current_segment += 1
+        #     if self.use_session_token:
+        #         tokens.append(self.session_token)
+        #         segments.append(current_segment)
+        #         stamps.append(next_stamp)
+
+        # cut
+        tokens = tokens[-self.sequence_len:]
+        segments = segments[-self.sequence_len:]
+        stamps = stamps[-self.sequence_len:]
+
+        # rename segments
+        num_sessions = max(segments)
+        segments = [max(1, self.max_num_segments - num_sessions + segment) for segment in segments]
+
+        # add paddings
+        padding_len = self.sequence_len - len(tokens)
+        tokens = [self.padding_token] * padding_len + tokens
+        segments = [self.padding_segment] * padding_len + segments
+        stamps = [start_stamp] * padding_len + stamps
+
+        # candidates and labels
+        # if self.ns != 'all':
+        #     negatives = self.uindex2negatives[uindex]
+        #     cands = [answer] + negatives
+        #     labels = [1] + [0] * len(negatives)
+        # else:
+        cands = list(range(1, self.num_items))
+        labels = [0] * self.num_items
+        # labels[answer - 1] = 1
 
         return {
             'tokens': LongTensor(tokens),

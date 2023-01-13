@@ -8,6 +8,7 @@ from models import SASRec
 from datasets import (
     NWPTrainDataset,
     NWPEvalDataset,
+    NWPPredictDataset
 )
 
 from .base import BaseSolver
@@ -51,6 +52,30 @@ class SASRecSolver(BaseSolver):
     def init_criterion(self) -> None:
         self.ce_losser = CrossEntropyLoss(ignore_index=0)
 
+    # override
+    def init_prediction(self) -> None:
+        C = self.config
+        name = C['dataset']
+        sequence_len = C['dataloader']['sequence_len']
+        max_num_segments = C['dataloader']['max_num_segments']
+        use_session_token = C['dataloader']['use_session_token']
+        self.predict_dataloader = DataLoader(
+            NWPPredictDataset(
+                name=name,
+                target='predict',
+                ns='random',
+                sequence_len=sequence_len,
+                max_num_segments=max_num_segments,
+                use_session_token=use_session_token
+            ),
+            batch_size=C['train']['batch_size'],
+            shuffle=False,
+            num_workers=C['envs']['CPU_COUNT'],
+            pin_memory=True,
+            drop_last=False
+        )
+                
+        
     # override
     def init_dataloader(self) -> None:
         C = self.config
@@ -163,7 +188,8 @@ class SASRecSolver(BaseSolver):
         loss = self.ce_losser(logits, labels)
 
         return loss
-
+    
+    
     # override
     def calculate_rankers(self, batch):
 

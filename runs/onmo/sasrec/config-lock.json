@@ -1,15 +1,15 @@
 {
     "envs": {
-        "RUN_ROOT": "C:\\Users\\User\\Documents\\Github\\rd-Bert4Rec_pytorch\\runs",
-        "DATA_ROOT": "C:\\Users\\User\\Documents\\Github\\rd-Bert4Rec_pytorch\\data",
-        "ROUGH_ROOT": "C:\\Users\\User\\Documents\\Github\\rd-Bert4Rec_pytorch\\roughs",
+        "RUN_ROOT": "c:\\Users\\User\\Documents\\Github\\rd-Bert4Rec_pytorch\\runs",
+        "DATA_ROOT": "c:\\Users\\User\\Documents\\Github\\rd-Bert4Rec_pytorch\\data",
+        "ROUGH_ROOT": "c:\\Users\\User\\Documents\\Github\\rd-Bert4Rec_pytorch\\roughs",
         "CPU_COUNT": 8,
-        "GPU_COUNT": 0
+        "GPU_COUNT": 1
     },
     "solver": "SASRecSolver",
     "dataset": "onmo",
     "dataloader": {
-        "sequence_len": 200,
+        "sequence_len": 20,
         "max_num_segments": 0,
         "random_cut_prob": 0.0,
         "mlm_mask_prob": 0.2,
@@ -55,5 +55,5 @@
     },
     "memo": "",
     "name": "onmo/sasrec",
-    "run_dir": "C:\\Users\\User\\Documents\\Github\\rd-Bert4Rec_pytorch\\runs\\onmo/sasrec"
+    "run_dir": "c:\\Users\\User\\Documents\\Github\\rd-Bert4Rec_pytorch\\runs\\onmo/sasrec"
 }
