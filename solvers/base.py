@@ -153,7 +153,7 @@ class BaseSolver:
         elif purpose == 'train':
             self.model = self.model.train()
 
-    def predict(self,dataloader) -> None:
+    def predict(self,dataloader,TopK = 0) -> None:
         # self.load_model('test')
         pbar = tqdm(dataloader)
         pbar.set_description(f"[prediction]")
@@ -162,18 +162,10 @@ class BaseSolver:
                 res = self.calculate_rankers(batch)
         pbar.close()
         res = res.tolist()[0]
+        if TopK > 0:
+            res = res[0:TopK]
         return res
     
-    def predict_all(self,dataloader) -> None:
-        self.load_model('test')
-        pbar = tqdm(dataloader)
-        pbar.set_description(f"[prediction]")
-        with torch.no_grad():
-            for batch in pbar:
-                res = self.calculate_rankers(batch)
-        pbar.close()
-        res = res.tolist()[0]
-        return res
         
     
     def solve(self) -> None:

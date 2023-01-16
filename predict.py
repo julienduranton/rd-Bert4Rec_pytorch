@@ -64,7 +64,7 @@ if __name__ == '__main__':
                 drop_last=False
             )
 
-        ranks = solver.predict(predict_data_tensor)
+        ranks = solver.predict(predict_data_tensor,10)
 
         labels = []
         for rec in ranks:
