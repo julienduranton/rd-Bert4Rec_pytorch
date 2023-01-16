@@ -154,6 +154,17 @@ class BaseSolver:
             self.model = self.model.train()
 
     def predict(self,dataloader) -> None:
+        # self.load_model('test')
+        pbar = tqdm(dataloader)
+        pbar.set_description(f"[prediction]")
+        with torch.no_grad():
+            for batch in pbar:
+                res = self.calculate_rankers(batch)
+        pbar.close()
+        res = res.tolist()[0]
+        return res
+    
+    def predict_all(self,dataloader) -> None:
         self.load_model('test')
         pbar = tqdm(dataloader)
         pbar.set_description(f"[prediction]")

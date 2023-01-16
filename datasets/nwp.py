@@ -284,6 +284,7 @@ class NWPPredictDataset(Dataset):
 
     def __init__(self,
                  df_predict,
+                 ui2uindex,
                  name: str,
                  target: str,  # 'valid', 'test'
                  ns: str,  # 'random', 'popular', 'all'
@@ -313,7 +314,7 @@ class NWPPredictDataset(Dataset):
         #     self.uindex2rows_valid = pickle.load(fp)
         # with open(os.path.join(self.data_root, name, 'test.pkl'), 'rb') as fp:
         #     self.uindex2rows_test = pickle.load(fp)
-
+        
         self.num_items = len(self.iid2iindex)
 
         # tokens

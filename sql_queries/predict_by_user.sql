@@ -1,0 +1,1 @@
+SELECT created_at,app_id,user_id,session_type FROM onmo.game_sessions where user_id like '96e9ce4f-2e93-42fd-b14c-01625c684690' and date(created_at) >= '2022-01-01' and app_id not like 'embed-subwaysurfer';

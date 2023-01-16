@@ -140,14 +140,14 @@ def do_predict_preprocessing(data_dir, df_rows):
     rows = predict_cut_and_assign_sids_to_rows(df_rows.values)
     df_rows = pd.DataFrame(rows)
     df_rows.columns = ['uid', 'iid', 'sid', 'timestamp']
-
-    # Load existing indexes
-    with open(os.path.join(data_dir,'uid2uindex.pkl'), 'rb') as fp:
-        uid2uindex = pickle.load(fp)
+    
+    # generate uid2uindex
+    uniqueIds = df_rows['uid'].unique().tolist()
+    uid2uindex = {uniqueIds[i]:i+1 for i in range(len(uniqueIds))}
         
     # map uid -> uindex
     print("- map uid -> uindex")
-    df_rows['uindex'] = [1 for _ in df_rows['uid']]
+    df_rows['uindex'] = [uid2uindex.get(str(uid)) for uid in df_rows['uid']]
     df_rows = df_rows.drop(columns=['uid'])
 
     # map iid -> iindex
@@ -160,7 +160,7 @@ def do_predict_preprocessing(data_dir, df_rows):
     df_rows = df_rows.drop(columns=['iid'])
     
     # save df_rows
-    return df_rows
+    return df_rows,uid2uindex
 
         
 def do_general_preprocessing(args, df_rows):
