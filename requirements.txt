@@ -1,5 +1,0 @@
-tqdm
-matplotlib
-pandas
-scikit-learn
-tensorboardX

@@ -6,64 +6,19 @@ Everything in the paper is implemented (including vanilla BERT4Rec and SASRec), 
 
 ## Usage
 
-### 1. Build Docker
+### 1. Train
 
 ```bash
-./scripts/build.sh
+python train_onmo.py data_onmo
 ```
+where data_onmo represents the folder containing the training data (onmo.csv)
 
-### 2. Download dataset
-
-Download corresponding datasets into some directory, such as `./roughs`.
-
-For [Steam](https://cseweb.ucsd.edu/~jmcauley/datasets.html#steam_data) dataset, use version 2.
-
-Rename datasets: `'ml1m'` for MovieLens-1M, `'ml20m'` for MovieLens-2M, `'steam2'` for Steam.
-
-### 3. Preprocess
-
-* `--rough_root`: for original dataset files
-* `--data_root`: for processed data files
-
+### 2. Predict
 ```bash
-python preprocess.py prepare ml1m --data_root ./data --rough_root ./roughs
-python preprocess.py prepare ml20m --data_root ./data --rough_root ./roughs
-python preprocess.py prepare steam2 --data_root ./data --rough_root ./roughs
+python predict data_onmo data_onmo/onmo_predict.csv
 ```
 
-For some stats:
-
-```bash
-python preprocess.py count stats --data_root ./data --rough_root ./roughs > dstats.tsv
-```
-
-### 4. Run
-
-See default configuration setting in `entry.py`.
-
-To modify configuration, make some directory under `runs/` like `./runs/ml1m/bert4rec/vanilla/`, and create `config.json`.
-
-#### Sample Run Script
-
-My `x0.sh` file that uses GPU No. 0:
-
-```bash
-runpy () {
-    docker run \
-        -it \
-        --rm \
-        --init \
-        --gpus '"device=0"' \
-        --shm-size 16G \
-        --volume="$HOME/.cache/torch:/root/.cache/torch" \
-        --volume="$PWD:/workspace" \
-        session-aware-bert4rec \
-        python "$@"
-}
-
-runpy entry.py ml1m/bert4rec/vanilla
-```
-
+where data_onmo represents the folder containing the pretrained model and data_onmo/onmo_predict.csv represents the file to predict from.
 ## Terminologies
 
 The `df_` prefix always means DataFrame from Pandas.

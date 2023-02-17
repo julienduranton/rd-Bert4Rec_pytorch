@@ -4,18 +4,29 @@ import pickle
 
 import pandas as pd
 from torch.utils.data import DataLoader
+import argparse
 
 from datasets import NWPPredictDataset
 from models import SASRec
 from preprocess import task_predict_onmo
 from solvers import *  # noqa: F401,F403
 
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('data_dir', type=str, help="data folder")
+    parser.add_argument('file_to_predict', type=str, help='Path to file to use for prediction')
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
     # freeze_support()
-    model_path = 'runs\onmo\sasrec\pths\model.pth'
-    run_dir = 'runs\onmo\sasrec'
-    data_path = 'roughs/onmo/predict_multiple.csv' 
-    game_titles_path = 'roughs\onmo\game_titles.csv'
+    args: argparse.Namespace = parse_args()
+
+    model_path = args.data_dir + '\pths\model.pth'
+    run_dir = args.data_dir
+    data_path = args.file_to_predict 
+    game_titles_path = run_dir + '\game_titles.csv'
     
     # load config
 
@@ -28,7 +39,7 @@ if __name__ == '__main__':
         config: dict = json.load(fp)
 
     # Initialize Solver
-    with open('data\onmo\iid2iindex.pkl', 'rb') as fp:
+    with open(run_dir + '\iid2iindex.pkl', 'rb') as fp:
         iid2iindex = pickle.load(fp)
         
     game_titles = pd.read_csv(game_titles_path)

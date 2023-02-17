@@ -165,7 +165,7 @@ class BaseSolver:
         if TopK > 0:
             res = res[0:TopK]
         return res
-    
+
         
     
     def solve(self) -> None:

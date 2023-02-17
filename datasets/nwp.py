@@ -17,7 +17,7 @@ __all__ = (
 
 class NWPTrainDataset(Dataset):
 
-    data_root = 'data'
+    data_root = 'data_onmo'
 
     def __init__(self,
                  name: str,
@@ -140,7 +140,7 @@ class NWPTrainDataset(Dataset):
 
 class NWPEvalDataset(Dataset):
 
-    data_root = 'data'
+    data_root = 'data_onmo'
 
     def __init__(self,
                  name: str,
@@ -280,7 +280,7 @@ class NWPEvalDataset(Dataset):
 
 class NWPPredictDataset(Dataset):
 
-    data_root = 'data'
+    data_root = 'data_onmo'
 
     def __init__(self,
                  df_predict,

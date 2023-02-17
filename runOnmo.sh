@@ -11,5 +11,4 @@ runpy () {
         python "$@"
 }
 
-# runpy entry.py onmo/bert4rec/vanilla
 runpy entry.py onmo/sasrec

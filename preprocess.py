@@ -162,7 +162,76 @@ def do_predict_preprocessing(data_dir, df_rows):
     # save df_rows
     return df_rows,uid2uindex
 
+
+def do_onmo_preprocessing(data_dir, df_rows):
+    print("do predict preprocessing")
+
+    # check first
+    data_dir = data_dir
+    os.makedirs(data_dir, exist_ok=True)
+
+    # filter out tiny items
+    print("- filter out tiny items")
+    df_iid2ucount = df_rows.groupby('iid').size()
+    survived_iids = df_iid2ucount.index[df_iid2ucount >= MIN_USER_COUNT_PER_ITEM]
+    df_rows = df_rows[df_rows['iid'].isin(survived_iids)]
+
+    # filter out tiny users
+    print("- filter out tiny users")
+    df_uid2icount = df_rows.groupby('uid').size()
+    survived_uids = df_uid2icount.index[df_uid2icount >= MIN_ITEM_COUNT_PER_USER]
+    df_rows = df_rows[df_rows['uid'].isin(survived_uids)]
+
+    # cut and assign sid
+    print("- cut and assign sid")
+    rows = cut_and_assign_sids_to_rows(df_rows.values)
+    df_rows = pd.DataFrame(rows)
+    df_rows.columns = ['uid', 'iid', 'sid', 'timestamp']
+
+    # map uid -> uindex
+    print("- map uid -> uindex")
+    uids = set(df_rows['uid'])
+    uid2uindex = {uid: index for index, uid in enumerate(set(uids), start=1)}
+    df_rows['uindex'] = df_rows['uid'].map(uid2uindex)
+    df_rows = df_rows.drop(columns=['uid'])
+    with open(os.path.join(data_dir, 'uid2uindex.pkl'), 'wb') as fp:
+        pickle.dump(uid2uindex, fp)
+
+    # map iid -> iindex
+    print("- map iid -> iindex")
+    iids = set(df_rows['iid'])
+    iid2iindex = {iid: index for index, iid in enumerate(set(iids), start=1)}
+    df_rows['iindex'] = df_rows['iid'].map(iid2iindex)
+    df_rows = df_rows.drop(columns=['iid'])
+    with open(os.path.join(data_dir, 'iid2iindex.pkl'), 'wb') as fp:
+        pickle.dump(iid2iindex, fp)
+
+    # save df_rows
+    print("- save df_rows")
+    df_rows.to_pickle(os.path.join(data_dir, 'df_rows.pkl'))
+
+    # split train, valid, test
+    print("- split train, valid, test")
+    train_data = {}
+    valid_data = {}
+    test_data = {}
+    for uindex in tqdm(list(uid2uindex.values()), desc="* splitting"):
+        df_user_rows = df_rows[df_rows['uindex'] == uindex].sort_values(by='timestamp')
+        user_rows = list(df_user_rows[['iindex', 'sid', 'timestamp']].itertuples(index=False, name=None))
+        train_data[uindex] = user_rows[:-2]
+        valid_data[uindex] = user_rows[-2: -1]
+        test_data[uindex] = user_rows[-1:]
+
+    # save splits
+    print("- save splits")
+    with open(os.path.join(data_dir, 'train.pkl'), 'wb') as fp:
+        pickle.dump(train_data, fp)
+    with open(os.path.join(data_dir, 'valid.pkl'), 'wb') as fp:
+        pickle.dump(valid_data, fp)
+    with open(os.path.join(data_dir, 'test.pkl'), 'wb') as fp:
+        pickle.dump(test_data, fp)
         
+                
 def do_general_preprocessing(args, df_rows):
     """
         Create `df_rows` in a right format and the rest will be done.
@@ -287,6 +356,54 @@ def do_general_random_negative_sampling(args, num_samples=100, seed=SEED):
         pickle.dump(ns_reg, fp)
     return maxNeg
 
+def do_onmo_random_negative_sampling(data_dir, num_samples=100, seed=SEED):
+    """
+        The `ns_random.pkl` created here is a dict with `uindex` as a key and a list of `iindex` as a value.
+
+        `ns_random` = `uindex` -> [list of `iindex`].
+    """
+    print("do general random negative sampling")
+
+    # check first
+    data_dir = data_dir
+    os.makedirs(data_dir, exist_ok=True)
+
+    # load materials
+    print("- load materials")
+    with open(os.path.join(data_dir, 'df_rows.pkl'), 'rb') as fp:
+        df_rows = pickle.load(fp)
+    with open(os.path.join(data_dir, 'uid2uindex.pkl'), 'rb') as fp:
+        uid2uindex = pickle.load(fp)
+        user_count = len(uid2uindex)
+    with open(os.path.join(data_dir, 'iid2iindex.pkl'), 'rb') as fp:
+        iid2iindex = pickle.load(fp)
+        item_count = len(iid2iindex)
+
+    # sample random negatives
+    print("- sample random negatives")
+    ns = {}
+    np.random.seed(seed)
+    for uindex in tqdm(list(range(1, user_count + 1)), desc="* sampling"):
+        seen_iindices = set(df_rows[df_rows['uindex'] == uindex]['iindex'])
+        sampled_iindices = set()
+        for _ in range(num_samples):
+            iindex = np.random.choice(item_count)+1
+            if iindex in seen_iindices or iindex in sampled_iindices:
+                iindex = np.random.choice(item_count)+1
+            sampled_iindices.add(iindex)
+        ns[uindex] = list(sampled_iindices)
+    
+    maxNeg = min(len(val) for val in ns.values())
+    ns_reg = {}
+    for key in ns:
+        ns_reg[key] = random.sample(ns[key], maxNeg)    
+    
+    # save sampled random nagetives
+    print("- save sampled random nagetives")
+    with open(os.path.join(data_dir, 'ns_random.pkl'), 'wb') as fp:
+        pickle.dump(ns_reg, fp)
+    return maxNeg
+
 
 def do_general_popular_negative_sampling(args, num_samples=100):
     """
@@ -331,41 +448,61 @@ def do_general_popular_negative_sampling(args, num_samples=100):
     with open(os.path.join(data_dir, 'ns_popular.pkl'), 'wb') as fp:
         pickle.dump(ns, fp)
 
+def do_onmo_popular_negative_sampling(data_dir, num_samples=100):
+    """
+        The `ns_popular.pkl` created here is a dict with `uindex` as a key and a list of `iindex` as a value.
 
-def task_prepare_ml1m(args):
-    print("task: prepare ml1m")
+        `ns_popular` = `uindex` -> [list of `iindex`].
+    """
+    print("do general popular negative sampling")
 
     # check first
-    data_dir = os.path.join(args.data_root, args.name)
+    data_dir = data_dir
     os.makedirs(data_dir, exist_ok=True)
 
-    # load data
-    print("- load data")
-    df_rows = pd.read_csv(os.path.join(args.rough_root, args.name, 'ratings.dat'), sep='::', header=None, engine='python')
-    df_rows.columns = ['uid', 'iid', 'rating', 'timestamp']
+    # load materials
+    print("- load materials")
+    with open(os.path.join(data_dir, 'df_rows.pkl'), 'rb') as fp:
+        df_rows = pickle.load(fp)
+    with open(os.path.join(data_dir, 'uid2uindex.pkl'), 'rb') as fp:
+        uid2uindex = pickle.load(fp)
+        user_count = len(uid2uindex)
 
-    # make implicit
-    print("- make implicit")
-    df_rows = df_rows[df_rows['rating'] >= 1]
-    df_rows = df_rows.drop(columns=['rating'])
+    # reorder items
+    print("- reorder items")
+    reordered_iindices = list(df_rows.groupby(['iindex']).size().sort_values().index)[::-1]
 
-    # do the rest
-    do_general_preprocessing(args, df_rows)
-    _ = do_general_random_negative_sampling(args)
-    do_general_popular_negative_sampling(args)
+    # sample popular negatives
+    print("- sample popular negatives")
+    ns = {}
+    for uindex in tqdm(list(range(1, user_count + 1)), desc="* sampling"):
+        seen_iindices = set(df_rows[df_rows['uindex'] == uindex]['iindex'])
+        sampled_iindices = []
+        for iindex in reordered_iindices:
+            if len(sampled_iindices) == num_samples:
+                break
+            if iindex in seen_iindices:
+                continue
+            sampled_iindices.append(iindex)
+        ns[uindex] = sampled_iindices
 
-    print("done")
+    # save sampled popular nagetives
+    print("- save sampled popular nagetives")
+    with open(os.path.join(data_dir, 'ns_popular.pkl'), 'wb') as fp:
+        pickle.dump(ns, fp)
 
-def task_prepare_onmo(args):
+
+
+def task_prepare_onmo(data_dir):
     print("task: prepare onmo")
     
     # check first
-    data_dir = os.path.join(args.data_root, args.name)
+    data_dir = data_dir
     os.makedirs(data_dir, exist_ok=True)
 
     # load data
     print("- load data")
-    df_rows = pd.read_csv(os.path.join(args.rough_root, args.name, 'onmo.csv'), sep=',', header=0, engine='python')
+    df_rows = pd.read_csv(os.path.join(data_dir,'onmo.csv'), sep=',', header=0, engine='python')
     
     df_rows.columns = ['created_at', 'iid','uid', 'session_type']
     df_rows['timetamp'] = [dt.timestamp(dt.strptime(date,"%Y-%m-%d %H:%M:%S")) for date in df_rows['created_at']]
@@ -376,9 +513,9 @@ def task_prepare_onmo(args):
     df_rows = df_rows.drop(columns=['created_at'])
     
     # do the rest
-    do_general_preprocessing(args, df_rows)
-    negSamp = do_general_random_negative_sampling(args)
-    do_general_popular_negative_sampling(args,negSamp)
+    do_onmo_preprocessing(data_dir, df_rows)
+    negSamp = do_onmo_random_negative_sampling(data_dir)
+    do_onmo_popular_negative_sampling(data_dir,negSamp)
 
     print("done")
 
@@ -386,7 +523,7 @@ def task_predict_onmo(csvpath):
     print("task: prepare predict onmo")
     
     # check first
-    data_dir = 'data/onmo'
+    data_dir = csvpath.split("/")[0]
     os.makedirs(data_dir, exist_ok=True)
 
     # load data
@@ -407,60 +544,6 @@ def task_predict_onmo(csvpath):
 
     
 
-def task_prepare_ml20m(args):
-    print("task: prepare ml20m")
-
-    # check first
-    data_dir = os.path.join(args.data_root, args.name)
-    os.makedirs(data_dir, exist_ok=True)
-
-    # load data
-    print("- load data")
-    df_rows = pd.read_csv(os.path.join(args.rough_root, args.name, 'ratings.csv'), sep=',', header=0, engine='python')
-    df_rows.columns = ['uid', 'iid', 'rating', 'timestamp']
-
-    # make implicit
-    print("- make implicit")
-    df_rows = df_rows[df_rows['rating'] >= 4]
-    df_rows = df_rows.drop(columns=['rating'])
-
-    # do the rest
-    do_general_preprocessing(args, df_rows)
-    _ = do_general_random_negative_sampling(args)
-    do_general_popular_negative_sampling(args)
-
-    print("done")
-
-
-def task_prepare_steam2(args):
-    print("task: prepare steam2")
-
-    # check first
-    data_dir = os.path.join(args.data_root, args.name)
-    os.makedirs(data_dir, exist_ok=True)
-
-    # load data
-    print("- load data")
-    rows = []
-    with open(os.path.join(args.rough_root, 'steam', 'steam_reviews.json')) as fp:
-        raw = fp.read().strip()
-        lines = raw.split('\n')
-        for line in tqdm(lines, desc="* loading"):
-            one = eval(line)
-            uid = one['username']
-            iid = one['product_id']
-            dto = dt.strptime(one['date'], "%Y-%m-%d")
-            timestamp = int(time.mktime(dto.timetuple()))
-            rows.append((uid, iid, timestamp))
-    df_rows = pd.DataFrame(rows)
-    df_rows.columns = ['uid', 'iid', 'timestamp']
-
-    # do the rest
-    do_general_preprocessing(args, df_rows)
-    _ =do_general_random_negative_sampling(args)
-    do_general_popular_negative_sampling(args)
-
-    print("done")
 
 
 def task_count_stats(args):
